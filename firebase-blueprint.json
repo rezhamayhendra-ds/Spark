@@ -1,0 +1,87 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account information including roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["Internal Customer", "External Customer", "Admin"] },
+        "photoURL": { "type": "string" },
+        "department": { "type": "string", "description": "The department the user belongs to" },
+        "division": { "type": "string", "description": "The division the user belongs to" },
+        "birthDate": { "type": "string", "format": "date", "description": "User's date of birth" },
+        "nik": { "type": "string", "description": "User's NIK (Nomor Induk Kependudukan)" },
+        "waNumber": { "type": "string", "description": "User's WhatsApp number" },
+        "isProfileComplete": { "type": "boolean", "description": "Flag to track profile completion" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Request": {
+      "title": "Request",
+      "description": "A solution request from a customer.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the requester" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "priority": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "status": { "type": "string", "enum": ["Submitted", "Review", "Solution Proposed", "Approved", "Rejected", "Postponed", "In Progress", "UAT", "Completed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "attachmentUrl": { "type": "string" },
+        "userName": { "type": "string", "description": "Display name of the requester" },
+        "department": { "type": "string", "description": "Department of the requester at the time of request" },
+        "nik": { "type": "string" },
+        "waNumber": { "type": "string" },
+        "division": { "type": "string" },
+        "problemStatement": { "type": "string" },
+        "expectedOutcome": { "type": "string" },
+        "businessImpact": { "type": "string" },
+        "urgency": { "type": "string" },
+        "picId": { "type": "string" },
+        "picName": { "type": "string" },
+        "reviewRemark": { "type": "string" },
+        "activities": { "type": "array", "items": { "type": "object" } },
+        "uatStatus": { "type": "string", "enum": ["Accepted", "Rejected"] },
+        "uatRemark": { "type": "string" },
+        "brdGeneratedAt": { "type": "string", "format": "date-time" },
+        "bastGeneratedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "status", "createdAt"]
+    },
+    "Solution": {
+      "title": "Solution",
+      "description": "A solution proposal for a request.",
+      "type": "object",
+      "properties": {
+        "requestId": { "type": "string" },
+        "adminId": { "type": "string" },
+        "proposal": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requestId", "adminId", "proposal", "createdAt"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "Customer feedback after request completion.",
+      "type": "object",
+      "properties": {
+        "requestId": { "type": "string" },
+        "rating": { "type": "integer" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requestId", "rating", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": { "schema": "User", "description": "User profiles" },
+    "/requests/{requestId}": { "schema": "Request", "description": "Customer requests" },
+    "/solutions/{solutionId}": { "schema": "Solution", "description": "Admin solutions" },
+    "/feedback/{feedbackId}": { "schema": "Feedback", "description": "Customer feedback" }
+  }
+}

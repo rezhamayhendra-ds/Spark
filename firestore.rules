@@ -1,0 +1,189 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - email: string (required)
+    //   - displayName: string
+    //   - role: string (required, enum: ["Internal Customer", "External Customer", "Admin"])
+    //   - photoURL: string
+    //
+    // Collection: requests
+    // Document ID: {requestId}
+    // Fields:
+    //   - userId: string (required)
+    //   - title: string (required, size < 200)
+    //   - description: string (required, size < 2000)
+    //   - category: string
+    //   - priority: string (enum: ["Low", "Medium", "High", "Critical"])
+    //   - status: string (enum: ["Submitted", "Review", "Approved", "Rejected", "Postponed", "In Progress", "UAT", "Completed"])
+    //   - createdAt: timestamp (required)
+    //   - updatedAt: timestamp
+    //   - attachmentUrl: string
+    //   - userName: string
+    //   - picId: string
+    //   - picName: string
+    //   - reviewRemark: string
+    //   - activities: list
+    //   - uatStatus: string
+    //   - uatRemark: string
+    //   - brdGeneratedAt: timestamp
+    //   - bastGeneratedAt: timestamp
+    //
+    // Collection: solutions
+    // Document ID: {solutionId}
+    // Fields:
+    //   - requestId: string (required)
+    //   - adminId: string (required)
+    //   - proposal: string (required, size < 5000)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: feedback
+    // Document ID: {feedbackId}
+    // Fields:
+    //   - requestId: string (required)
+    //   - rating: int (required, 1-5)
+    //   - comment: string (size < 1000)
+    //   - createdAt: timestamp (required)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (
+          request.auth.token.email == "rezha.mayhendra@pancaran-logistic.id" ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin')
+        );
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'role', 'photoURL', 'department', 'division', 'birthDate', 'nik', 'waNumber', 'isProfileComplete']) &&
+             data.uid is string && data.email is string && isValidEmail(data.email) &&
+             data.displayName is string && data.displayName.size() < 100 &&
+             data.role in ["Internal Customer", "External Customer", "Admin"] &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 1000)) &&
+             (!('department' in data) || (data.department is string && data.department.size() < 100)) &&
+             (!('division' in data) || (data.division is string && data.division.size() < 100)) &&
+             (!('birthDate' in data) || (data.birthDate is string && data.birthDate.size() < 20)) &&
+             (!('nik' in data) || (data.nik is string && data.nik.size() < 20)) &&
+             (!('waNumber' in data) || (data.waNumber is string && data.waNumber.size() < 20)) &&
+             (!('isProfileComplete' in data) || data.isProfileComplete is bool);
+    }
+
+    function isValidRequest(data) {
+      return hasOnlyAllowedFields(['userId', 'title', 'description', 'category', 'priority', 'status', 'createdAt', 'updatedAt', 'attachmentUrl', 'userName', 'department', 'nik', 'waNumber', 'division', 'problemStatement', 'expectedOutcome', 'businessImpact', 'urgency', 'picId', 'picName', 'reviewRemark', 'activities', 'uatStatus', 'uatRemark', 'brdGeneratedAt', 'bastGeneratedAt']) &&
+             data.userId is string && data.title is string && data.title.size() < 200 &&
+             (!('description' in data) || (data.description is string && data.description.size() < 2000)) &&
+             data.status in ["Submitted", "Review", "Solution Proposed", "Approved", "Rejected", "Postponed", "In Progress", "UAT", "Completed"] &&
+             (!('priority' in data) || data.priority in ["Low", "Medium", "High", "Critical"]) &&
+             (!('userName' in data) || (data.userName is string && data.userName.size() < 100)) &&
+             (!('category' in data) || (data.category is string && data.category.size() < 100)) &&
+             (!('department' in data) || (data.department is string && data.department.size() < 100)) &&
+             (!('nik' in data) || (data.nik is string && data.nik.size() < 50)) &&
+             (!('waNumber' in data) || (data.waNumber is string && data.waNumber.size() < 20)) &&
+             (!('division' in data) || (data.division is string && data.division.size() < 100)) &&
+             (!('problemStatement' in data) || (data.problemStatement is string && data.problemStatement.size() < 5000)) &&
+             (!('expectedOutcome' in data) || (data.expectedOutcome is string && data.expectedOutcome.size() < 5000)) &&
+             (!('businessImpact' in data) || (data.businessImpact is string && data.businessImpact.size() < 50)) &&
+             (!('urgency' in data) || (data.urgency is string && data.urgency.size() < 50)) &&
+             (!('attachmentUrl' in data) || (data.attachmentUrl is string && data.attachmentUrl.size() < 1000)) &&
+             (!('picId' in data) || (data.picId is string && data.picId.size() < 100)) &&
+             (!('picName' in data) || (data.picName is string && data.picName.size() < 100)) &&
+             (!('reviewRemark' in data) || (data.reviewRemark is string && data.reviewRemark.size() < 2000)) &&
+             (!('activities' in data) || data.activities is list) &&
+             (!('uatStatus' in data) || data.uatStatus in ["Accepted", "Rejected"]) &&
+             (!('uatRemark' in data) || (data.uatRemark is string && data.uatRemark.size() < 2000)) &&
+             (!('brdGeneratedAt' in data) || data.brdGeneratedAt is timestamp) &&
+             (!('bastGeneratedAt' in data) || data.bastGeneratedAt is timestamp) &&
+             data.createdAt is timestamp &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidSolution(data) {
+      return hasOnlyAllowedFields(['requestId', 'adminId', 'proposal', 'createdAt']) &&
+             data.requestId is string && data.adminId is string &&
+             data.proposal is string && data.proposal.size() < 5000 &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidFeedback(data) {
+      return hasOnlyAllowedFields(['requestId', 'rating', 'comment', 'createdAt']) &&
+             data.requestId is string && data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             (!('comment' in data) || (data.comment is string && data.comment.size() < 1000)) &&
+             data.createdAt is timestamp;
+    }
+
+    function isProfileComplete() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isProfileComplete == true;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /requests/{requestId} {
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow create: if isAuthenticated() && isProfileComplete() && isValidRequest(request.resource.data) && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && isValidRequest(request.resource.data) && (isAdmin() || resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    match /solutions/{solutionId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() && isValidSolution(request.resource.data);
+      allow update: if isAdmin() && isValidSolution(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /feedback/{feedbackId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidFeedback(request.resource.data);
+      allow update: if isAuthenticated() && isValidFeedback(request.resource.data);
+    }
+
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}
