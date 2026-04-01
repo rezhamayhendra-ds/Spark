@@ -2580,7 +2580,7 @@ const RequestDetail = ({ user }: { user: UserProfile }) => {
 };
 
 // --- Main Layout ---
-const Layout = ({ user, children }: { user: UserProfile, children: React.ReactNode }) => {
+const Layout = ({ user, children, isOnline }: { user: UserProfile, children: React.ReactNode, isOnline: boolean }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -2598,6 +2598,14 @@ const Layout = ({ user, children }: { user: UserProfile, children: React.ReactNo
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="bg-amber-500 text-white px-6 py-2 text-center text-xs font-bold uppercase tracking-widest sticky top-0 z-[60] shadow-md flex items-center justify-center gap-2">
+          <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          Offline Mode - Some features may be limited
+        </div>
+      )}
+
       {/* Mobile Top Nav */}
       <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
         <div className="flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
@@ -3541,6 +3549,20 @@ export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const onboardingDone = localStorage.getItem('spark_onboarding_done');
@@ -3579,7 +3601,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <Layout user={user}>
+        <Layout user={user} isOnline={isOnline}>
           <Routes>
             <Route path="/" element={<Dashboard user={user} />} />
             <Route path="/requests" element={<Dashboard user={user} />} />
