@@ -15,7 +15,11 @@
         "birthDate": { "type": "string", "format": "date", "description": "User's date of birth" },
         "nik": { "type": "string", "description": "User's NIK (Nomor Induk Kependudukan)" },
         "waNumber": { "type": "string", "description": "User's WhatsApp number" },
-        "isProfileComplete": { "type": "boolean", "description": "Flag to track profile completion" }
+        "isProfileComplete": { "type": "boolean", "description": "Flag to track profile completion" },
+        "fcmTokens": { "type": "array", "items": { "type": "string" }, "description": "FCM tokens for push notifications" },
+        "lastViewedUsersAt": { "type": "string", "format": "date-time", "description": "Last time the user viewed the users list" },
+        "lastViewedRequestsAt": { "type": "string", "format": "date-time", "description": "Last time the user viewed the requests list" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "User account creation time" }
       },
       "required": ["uid", "email", "role"]
     },
