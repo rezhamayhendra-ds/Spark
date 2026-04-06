@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { auth, db, storage, googleProvider, OperationType, handleFirestoreError } from './firebase';
+import { auth, db, storage, googleProvider, OperationType, handleFirestoreError, messaging, getToken, onMessage } from './firebase';
 import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser, signInWithEmailAndPassword, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, addDoc, updateDoc, deleteDoc, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -304,7 +304,10 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
           role: role,
           photoURL: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}&background=random`,
           department: 'General',
-          isProfileComplete: false
+          isProfileComplete: false,
+          createdAt: serverTimestamp(),
+          lastViewedUsersAt: serverTimestamp(),
+          lastViewedRequestsAt: serverTimestamp()
         });
       }
       onLogin();
@@ -334,7 +337,10 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
           role: role,
           photoURL: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}&background=random`,
           department: 'General',
-          isProfileComplete: false
+          isProfileComplete: false,
+          createdAt: serverTimestamp(),
+          lastViewedUsersAt: serverTimestamp(),
+          lastViewedRequestsAt: serverTimestamp()
         });
       }
       onLogin();
@@ -2580,20 +2586,32 @@ const RequestDetail = ({ user }: { user: UserProfile }) => {
 };
 
 // --- Main Layout ---
-const Layout = ({ user, children, isOnline }: { user: UserProfile, children: React.ReactNode, isOnline: boolean }) => {
+const Layout = ({ 
+  user, 
+  children, 
+  isOnline, 
+  unreadUsersCount = 0, 
+  unreadRequestsCount = 0 
+}: { 
+  user: UserProfile, 
+  children: React.ReactNode, 
+  isOnline: boolean,
+  unreadUsersCount?: number,
+  unreadRequestsCount?: number
+}) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navItems = [
     { label: 'Home', icon: <LayoutDashboard />, path: '/' },
-    { label: 'Requests', icon: <ClipboardList />, path: '/requests' },
+    { label: 'Requests', icon: <ClipboardList />, path: '/requests', badge: unreadRequestsCount },
     { label: 'New', icon: <PlusCircle />, path: '/new-request' },
     { label: 'Account', icon: <Key />, path: '/settings' },
   ];
 
   if (user.role === 'Admin') {
-    navItems.push({ label: 'Users', icon: <Users />, path: '/admin/users' });
+    navItems.push({ label: 'Users', icon: <Users />, path: '/admin/users', badge: unreadUsersCount });
   }
 
   return (
@@ -2642,12 +2660,19 @@ const Layout = ({ user, children, isOnline }: { user: UserProfile, children: Rea
                     key={item.path}
                     onClick={() => { navigate(item.path); setIsMenuOpen(false); }}
                     className={cn(
-                      "w-full flex items-center gap-3 p-4 rounded-2xl font-semibold transition-all",
+                      "w-full flex items-center justify-between p-4 rounded-2xl font-semibold transition-all",
                       location.pathname === item.path ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-50"
                     )}
                   >
-                    {React.cloneElement(item.icon as React.ReactElement, { className: "w-5 h-5" })}
-                    {item.label}
+                    <div className="flex items-center gap-3">
+                      {React.cloneElement(item.icon as React.ReactElement, { className: "w-5 h-5" })}
+                      {item.label}
+                    </div>
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -2683,11 +2708,18 @@ const Layout = ({ user, children, isOnline }: { user: UserProfile, children: Rea
             key={item.path}
             onClick={() => navigate(item.path)}
             className={cn(
-              "flex flex-col items-center gap-1",
+              "flex flex-col items-center gap-1 relative",
               location.pathname === item.path ? "text-indigo-600" : "text-gray-400"
             )}
           >
-            {React.cloneElement(item.icon as React.ReactElement, { className: "w-6 h-6" })}
+            <div className="relative">
+              {React.cloneElement(item.icon as React.ReactElement, { className: "w-6 h-6" })}
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-bold w-4 h-4 rounded-full flex items-center justify-center border-2 border-white">
+                  {item.badge > 9 ? '9+' : item.badge}
+                </span>
+              )}
+            </div>
             <span className="text-[10px] font-bold uppercase tracking-widest">{item.label}</span>
           </button>
         ))}
@@ -3545,11 +3577,129 @@ const ProfileCompletion = ({ user }: { user: UserProfile }) => {
 };
 
 // --- App ---
+const NavigationTracker = ({ user }: { user: UserProfile }) => {
+  const location = useLocation();
+  
+  useEffect(() => {
+    if (location.pathname === '/admin/users') {
+      updateDoc(doc(db, 'users', user.uid), { lastViewedUsersAt: serverTimestamp() });
+    }
+    if (location.pathname === '/requests') {
+      updateDoc(doc(db, 'users', user.uid), { lastViewedRequestsAt: serverTimestamp() });
+    }
+  }, [location.pathname, user.uid]);
+
+  return null;
+};
+
 export default function App() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(true);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [unreadUsersCount, setUnreadUsersCount] = useState(0);
+  const [unreadRequestsCount, setUnreadRequestsCount] = useState(0);
+
+  useEffect(() => {
+    if (!user || !messaging) return;
+
+    const requestPermission = async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          const token = await getToken(messaging, { 
+            vapidKey: 'BIsW9f7_77777777777777777777777777777777777777777777777777777777777777777777777' // Placeholder, FCM works without it in some cases or needs real one
+          });
+          if (token) {
+            const currentTokens = user.fcmTokens || [];
+            if (!currentTokens.includes(token)) {
+              await updateDoc(doc(db, 'users', user.uid), {
+                fcmTokens: [...currentTokens, token]
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error('FCM Error:', err);
+      }
+    };
+
+    requestPermission();
+
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log('Message received. ', payload);
+      if (payload.notification) {
+        new Notification(payload.notification.title || 'New Notification', {
+          body: payload.notification.body,
+          icon: '/spark-logo.png'
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'Admin') {
+      setUnreadUsersCount(0);
+      return;
+    }
+
+    const q = query(
+      collection(db, 'users'),
+      where('createdAt', '>', user.lastViewedUsersAt || new Date(0))
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUnreadUsersCount(snapshot.size);
+      if (snapshot.size > 0 && !snapshot.metadata.hasPendingWrites) {
+        // Show local notification for new users
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'added') {
+            const newUser = change.doc.data() as UserProfile;
+            if (Notification.permission === 'granted') {
+              new Notification('New User Registered', {
+                body: `${newUser.displayName} has joined SPARK!`,
+                icon: newUser.photoURL
+              });
+            }
+          }
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, user?.role, user?.lastViewedUsersAt]);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadRequestsCount(0);
+      return;
+    }
+
+    const q = user.role === 'Admin' 
+      ? query(collection(db, 'requests'), where('createdAt', '>', user.lastViewedRequestsAt || new Date(0)))
+      : query(collection(db, 'requests'), where('userId', '==', user.uid), where('updatedAt', '>', user.lastViewedRequestsAt || new Date(0)));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setUnreadRequestsCount(snapshot.size);
+      if (snapshot.size > 0 && !snapshot.metadata.hasPendingWrites) {
+        snapshot.docChanges().forEach(change => {
+          if (change.type === 'added' || change.type === 'modified') {
+            const req = change.doc.data() as Request;
+            if (Notification.permission === 'granted') {
+              new Notification('Request Update', {
+                body: `Request: ${req.title} - Status: ${req.status}`,
+                icon: '/spark-logo.png'
+              });
+            }
+          }
+        });
+      }
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, user?.role, user?.lastViewedRequestsAt]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -3601,7 +3751,13 @@ export default function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <Layout user={user} isOnline={isOnline}>
+        <NavigationTracker user={user} />
+        <Layout 
+          user={user} 
+          isOnline={isOnline} 
+          unreadUsersCount={unreadUsersCount} 
+          unreadRequestsCount={unreadRequestsCount}
+        >
           <Routes>
             <Route path="/" element={<Dashboard user={user} />} />
             <Route path="/requests" element={<Dashboard user={user} />} />

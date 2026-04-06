@@ -12,6 +12,9 @@ export interface UserProfile {
   nik?: string;
   waNumber?: string;
   isProfileComplete?: boolean;
+  fcmTokens?: string[];
+  lastViewedUsersAt?: any;
+  lastViewedRequestsAt?: any;
 }
 
 export type RequestStatus = 'Submitted' | 'Review' | 'Solution Proposed' | 'Approved' | 'Rejected' | 'Postponed' | 'In Progress' | 'UAT' | 'Completed';
