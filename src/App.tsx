@@ -3604,6 +3604,10 @@ export default function App() {
     if (!user || !messaging) return;
 
     const requestPermission = async () => {
+      if (!('Notification' in window)) {
+        console.log('This browser does not support desktop notification');
+        return;
+      }
       try {
         const permission = await Notification.requestPermission();
         if (permission === 'granted') {
@@ -3628,7 +3632,7 @@ export default function App() {
 
     const unsubscribe = onMessage(messaging, (payload) => {
       console.log('Message received. ', payload);
-      if (payload.notification) {
+      if (payload.notification && 'Notification' in window) {
         new Notification(payload.notification.title || 'New Notification', {
           body: payload.notification.body,
           icon: '/spark-logo.png'
@@ -3657,7 +3661,7 @@ export default function App() {
         snapshot.docChanges().forEach(change => {
           if (change.type === 'added') {
             const newUser = change.doc.data() as UserProfile;
-            if (Notification.permission === 'granted') {
+            if ('Notification' in window && Notification.permission === 'granted') {
               new Notification('New User Registered', {
                 body: `${newUser.displayName} has joined SPARK!`,
                 icon: newUser.photoURL
@@ -3687,7 +3691,7 @@ export default function App() {
         snapshot.docChanges().forEach(change => {
           if (change.type === 'added' || change.type === 'modified') {
             const req = change.doc.data() as Request;
-            if (Notification.permission === 'granted') {
+            if ('Notification' in window && Notification.permission === 'granted') {
               new Notification('Request Update', {
                 body: `Request: ${req.title} - Status: ${req.status}`,
                 icon: '/spark-logo.png'
