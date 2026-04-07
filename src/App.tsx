@@ -3654,8 +3654,15 @@ export default function App() {
       where('createdAt', '>', user.lastViewedUsersAt || new Date(0))
     );
 
+    let isInitialLoad = true;
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setUnreadUsersCount(snapshot.size);
+      
+      if (isInitialLoad) {
+        isInitialLoad = false;
+        return;
+      }
+
       if (snapshot.size > 0 && !snapshot.metadata.hasPendingWrites) {
         // Show local notification for new users
         snapshot.docChanges().forEach(change => {
@@ -3685,8 +3692,15 @@ export default function App() {
       ? query(collection(db, 'requests'), where('createdAt', '>', user.lastViewedRequestsAt || new Date(0)))
       : query(collection(db, 'requests'), where('userId', '==', user.uid), where('updatedAt', '>', user.lastViewedRequestsAt || new Date(0)));
 
+    let isInitialLoad = true;
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setUnreadRequestsCount(snapshot.size);
+
+      if (isInitialLoad) {
+        isInitialLoad = false;
+        return;
+      }
+
       if (snapshot.size > 0 && !snapshot.metadata.hasPendingWrites) {
         snapshot.docChanges().forEach(change => {
           if (change.type === 'added' || change.type === 'modified') {
