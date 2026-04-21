@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db, storage, googleProvider, OperationType, handleFirestoreError, messaging, getToken, onMessage } from './firebase';
-import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser, signInWithEmailAndPassword, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'firebase/auth';
+import { onAuthStateChanged, signInWithPopup, signOut, User as FirebaseUser, signInWithEmailAndPassword, createUserWithEmailAndPassword, updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, addDoc, updateDoc, deleteDoc, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { UserProfile, Request, UserRole, RequestStatus, Feedback, Activity } from './types';
@@ -269,7 +269,9 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const handleForgotPassword = async () => {
     if (!email) {
@@ -282,6 +284,41 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
       setError('Password reset email sent! Check your inbox.');
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name) {
+      setError('Please enter your full name');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      const user = result.user;
+      
+      const role: UserRole = 'Internal Customer';
+      
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
+        email: user.email,
+        displayName: name,
+        role: role,
+        photoURL: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+        department: 'General',
+        isProfileComplete: false,
+        createdAt: serverTimestamp(),
+        lastViewedUsersAt: serverTimestamp(),
+        lastViewedRequestsAt: serverTimestamp(),
+        fcmTokens: []
+      });
+      onLogin();
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account');
     } finally {
       setLoading(false);
     }
@@ -361,10 +398,30 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
         <div className="flex justify-center mb-6">
           <img src={SPARK_LOGO} className="w-72 h-auto object-contain" alt="SPARK" referrerPolicy="no-referrer" />
         </div>
-        <h1 className="text-2xl font-bold text-center text-gray-900 mb-2 tracking-tight">Welcome back to SPARK</h1>
-        <p className="text-gray-500 text-center mb-8">Sign in to manage your solution requests</p>
+        <h1 className="text-2xl font-bold text-center text-gray-900 mb-2 tracking-tight">
+          {isSignUp ? "Create a SPARK Account" : "Welcome back to SPARK"}
+        </h1>
+        <p className="text-gray-500 text-center mb-8">
+          {isSignUp ? "Join us to manage your solution requests" : "Sign in to manage your solution requests"}
+        </p>
         
-        <form onSubmit={handleEmailLogin} className="space-y-4 mb-6">
+        <form onSubmit={isSignUp ? handleSignUp : handleEmailLogin} className="space-y-4 mb-6">
+          {isSignUp && (
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Full Name</label>
+              <div className="relative">
+                <Users className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input 
+                  type="text"
+                  required
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  placeholder="John Doe"
+                  className="w-full pl-12 pr-4 py-3 bg-gray-50 rounded-2xl border border-gray-100 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+          )}
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email Address</label>
             <div className="relative">
@@ -394,15 +451,17 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
             </div>
           </div>
           
-          <div className="flex justify-end">
-            <button 
-              type="button"
-              onClick={handleForgotPassword}
-              className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors"
-            >
-              Forgot Password?
-            </button>
-          </div>
+          {!isSignUp && (
+            <div className="flex justify-end">
+              <button 
+                type="button"
+                onClick={handleForgotPassword}
+                className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors"
+              >
+                Forgot Password?
+              </button>
+            </div>
+          )}
 
           {error && <p className="text-xs text-red-500 font-medium text-center">{error}</p>}
 
@@ -411,23 +470,41 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
             disabled={loading}
             className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-50"
           >
-            {loading ? "Signing in..." : "Sign In"}
+            {loading ? (isSignUp ? "Creating account..." : "Signing in...") : (isSignUp ? "Create Account" : "Sign In")}
           </button>
         </form>
 
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
-          <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-400 font-mono">Or continue with</span></div>
+        <div className="flex flex-col gap-4">
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+            <div className="relative flex justify-center text-xs uppercase"><span className="bg-white px-2 text-gray-400 font-mono">Or continue with</span></div>
+          </div>
+          
+          <button
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-100 py-4 rounded-2xl font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="Google" />
+            Google Account
+          </button>
+
+          <div className="flex justify-center mt-2">
+            <button 
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setError('');
+              }}
+              className="text-xs font-bold text-indigo-600 uppercase tracking-widest hover:text-indigo-700 transition-colors flex items-center gap-2"
+            >
+              {isSignUp ? (
+                <>Already have an account? <span className="underlineDecoration">Sign In</span></>
+              ) : (
+                <>New to SPARK? <span className="underlineDecoration">Create an Account</span></>
+              )}
+            </button>
+          </div>
         </div>
-        
-        <button
-          onClick={handleGoogleLogin}
-          disabled={loading}
-          className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-100 py-4 rounded-2xl font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95 disabled:opacity-50"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-6 h-6" alt="Google" />
-          Google Account
-        </button>
         
         <p className="mt-8 text-center text-xs text-gray-400 font-mono uppercase tracking-widest">
           Digital Solution Department
@@ -436,6 +513,7 @@ const Login = ({ onLogin }: { onLogin: () => void }) => {
     </div>
   );
 };
+
 
 // --- Dashboard ---
 const Dashboard = ({ user }: { user: UserProfile }) => {
@@ -3741,10 +3819,33 @@ export default function App() {
         const unsubscribeUser = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
           if (docSnap.exists()) {
             setUser(docSnap.data() as UserProfile);
+          } else {
+            // Handle case where user document doesn't exist yet but user is authenticated
+            setUser({
+              uid: firebaseUser.uid,
+              email: firebaseUser.email || '',
+              displayName: firebaseUser.displayName || 'User',
+              role: 'Internal Customer',
+              photoURL: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(firebaseUser.displayName || 'User')}&background=random`,
+              department: 'General',
+              isProfileComplete: false,
+              createdAt: new Date() as any,
+              lastViewedUsersAt: new Date() as any,
+              lastViewedRequestsAt: new Date() as any
+            });
           }
           setLoading(false);
         }, (error) => {
-          handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+          console.warn("Firestore initialization warning:", error.message);
+          // If it's a permission error during initial load, we might be in a race condition
+          // Don't crash immediately, wait for a bit
+          if (error.code === 'permission-denied') {
+            setTimeout(() => {
+              setLoading(false);
+            }, 2000);
+          } else {
+            handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+          }
         });
         return () => unsubscribeUser();
       } else {

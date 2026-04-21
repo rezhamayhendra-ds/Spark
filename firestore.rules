@@ -69,7 +69,8 @@ service cloud.firestore {
       return isAuthenticated() &&
         (
           request.auth.token.email == "rezha.mayhendra@pancaran-logistic.id" ||
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'Admin')
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'Internal Customer') == 'Admin')
         );
     }
 
@@ -152,7 +153,7 @@ service cloud.firestore {
 
     function isProfileComplete() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isProfileComplete == true;
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isProfileComplete', false) == true;
     }
 
     // ===============================================================
@@ -160,7 +161,8 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
       allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
       allow delete: if isAdmin();
