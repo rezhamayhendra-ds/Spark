@@ -15,6 +15,8 @@ export interface UserProfile {
   fcmTokens?: string[];
   lastViewedUsersAt?: any;
   lastViewedRequestsAt?: any;
+  status?: 'online' | 'offline';
+  lastActive?: any;
 }
 
 export type RequestStatus = 'Submitted' | 'Review' | 'Solution Proposed' | 'Approved' | 'Rejected' | 'Postponed' | 'In Progress' | 'UAT' | 'Completed';

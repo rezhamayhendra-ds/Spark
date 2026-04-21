@@ -2868,61 +2868,82 @@ const UserManagement = ({ user }: { user: UserProfile }) => {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">User</th>
+                <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">Status</th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">Department</th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">Role</th>
                 <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-gray-400">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {users.map((u) => (
-                <tr key={u.uid} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <img src={u.photoURL} className="w-8 h-8 rounded-full" alt="" />
-                      <div>
-                        <div className="font-bold text-gray-900">{u.displayName}</div>
-                        <div className="text-xs text-gray-400">{u.email}</div>
+              {users.map((u) => {
+                const isOnline = u.status === 'online' && 
+                               u.lastActive && 
+                               (new Date().getTime() - (u.lastActive?.toDate?.() || new Date(u.lastActive)).getTime()) < 10 * 60 * 1000;
+
+                return (
+                  <tr key={u.uid} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <img src={u.photoURL} className="w-8 h-8 rounded-full" alt="" />
+                        <div>
+                          <div className="font-bold text-gray-900">{u.displayName}</div>
+                          <div className="text-xs text-gray-400">{u.email}</div>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <input 
-                      type="text"
-                      defaultValue={u.department || 'General'}
-                      onBlur={(e) => updateDepartment(u.uid, e.target.value)}
-                      className="text-xs bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none w-32"
-                    />
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={cn(
-                      "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider",
-                      u.role === 'Admin' ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-600"
-                    )}>
-                      {u.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-4">
-                      <select 
-                        value={u.role}
-                        onChange={(e) => updateRole(u.uid, e.target.value as UserRole)}
-                        className="text-xs font-bold bg-transparent border-none focus:ring-0 text-indigo-600 cursor-pointer"
-                      >
-                        <option value="Internal Customer">Internal</option>
-                        <option value="External Customer">External</option>
-                        <option value="Admin">Admin</option>
-                      </select>
-                      <button 
-                        onClick={() => setDeleteConfirm({ isOpen: true, uid: u.uid })}
-                        className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                        title="Delete User"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full",
+                          isOnline ? "bg-emerald-500 shadow-sm shadow-emerald-200" : "bg-gray-300"
+                        )} />
+                        <span className={cn(
+                          "text-[10px] font-bold uppercase tracking-wider",
+                          isOnline ? "text-emerald-600" : "text-gray-400"
+                        )}>
+                          {isOnline ? 'Online' : 'Offline'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <input 
+                        type="text"
+                        defaultValue={u.department || 'General'}
+                        onBlur={(e) => updateDepartment(u.uid, e.target.value)}
+                        className="text-xs bg-gray-50 border border-gray-100 rounded-lg px-2 py-1 focus:ring-1 focus:ring-indigo-500 outline-none w-32"
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider",
+                        u.role === 'Admin' ? "bg-indigo-100 text-indigo-600" : "bg-gray-100 text-gray-600"
+                      )}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <select 
+                          value={u.role}
+                          onChange={(e) => updateRole(u.uid, e.target.value as UserRole)}
+                          className="text-xs font-bold bg-transparent border-none focus:ring-0 text-indigo-600 cursor-pointer"
+                        >
+                          <option value="Internal Customer">Internal</option>
+                          <option value="External Customer">External</option>
+                          <option value="Admin">Admin</option>
+                        </select>
+                        <button 
+                          onClick={() => setDeleteConfirm({ isOpen: true, uid: u.uid })}
+                          className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -3809,6 +3830,45 @@ export default function App() {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    // Presence heartbeat
+    const updatePresence = async (status: 'online' | 'offline') => {
+      try {
+        await updateDoc(doc(db, 'users', user.uid), {
+          status,
+          lastActive: serverTimestamp()
+        });
+      } catch (error) {
+        console.error("Presence error:", error);
+      }
+    };
+
+    updatePresence('online');
+
+    const heartbeatInterval = setInterval(() => updatePresence('online'), 3 * 60 * 1000); // 3 minutes
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        updatePresence('online');
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      updatePresence('offline');
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user?.uid]);
 
   useEffect(() => {
     const onboardingDone = localStorage.getItem('spark_onboarding_done');

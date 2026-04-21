@@ -91,7 +91,7 @@ service cloud.firestore {
     // ===============================================================
 
     function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'role', 'photoURL', 'department', 'division', 'birthDate', 'nik', 'waNumber', 'isProfileComplete', 'fcmTokens', 'lastViewedUsersAt', 'lastViewedRequestsAt', 'createdAt']) &&
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'role', 'photoURL', 'department', 'division', 'birthDate', 'nik', 'waNumber', 'isProfileComplete', 'fcmTokens', 'lastViewedUsersAt', 'lastViewedRequestsAt', 'createdAt', 'status', 'lastActive']) &&
              data.uid is string && data.email is string && isValidEmail(data.email) &&
              data.displayName is string && data.displayName.size() < 100 &&
              data.role in ["Internal Customer", "External Customer", "Admin"] &&
@@ -105,7 +105,9 @@ service cloud.firestore {
              (!('fcmTokens' in data) || data.fcmTokens is list) &&
              (!('lastViewedUsersAt' in data) || data.lastViewedUsersAt is timestamp) &&
              (!('lastViewedRequestsAt' in data) || data.lastViewedRequestsAt is timestamp) &&
-             (!('createdAt' in data) || data.createdAt is timestamp);
+             (!('createdAt' in data) || data.createdAt is timestamp) &&
+             (!('status' in data) || data.status in ['online', 'offline']) &&
+             (!('lastActive' in data) || data.lastActive is timestamp);
     }
 
     function isValidRequest(data) {
